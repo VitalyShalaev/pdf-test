@@ -3,6 +3,8 @@ package com.codeborne.pdftest;
 import com.codeborne.pdftest.matchers.ContainsExactText;
 import com.codeborne.pdftest.matchers.ContainsText;
 import com.codeborne.pdftest.matchers.ContainsTextCaseInsensitive;
+import com.codeborne.pdftest.matchers.DoesNotContainExactText;
+import com.codeborne.pdftest.matchers.DoesNotContainText;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -34,11 +36,18 @@ public class PDF {
   public final Calendar signatureTime;
 
   private PDF(String name, byte[] content) {
+    this(name, content, 1, Integer.MAX_VALUE);
+  }
+
+  private PDF(String name, byte[] content, int startPage, int endPage) {
     this.content = content;
 
     try (InputStream inputStream = new ByteArrayInputStream(content)) {
       try (PDDocument pdf = PDDocument.load(inputStream)) {
-        this.text = new PDFTextStripper().getText(pdf);
+        PDFTextStripper pdfTextStripper = new PDFTextStripper();
+        pdfTextStripper.setStartPage(startPage);
+        pdfTextStripper.setEndPage(endPage);
+        this.text = pdfTextStripper.getText(pdf);
         this.numberOfPages = pdf.getNumberOfPages();
         this.author = pdf.getDocumentInformation().getAuthor();
         this.creationDate = pdf.getDocumentInformation().getCreationDate();
@@ -48,7 +57,7 @@ public class PDF {
         this.subject = pdf.getDocumentInformation().getSubject();
         this.title = pdf.getDocumentInformation().getTitle();
         this.encrypted = pdf.isEncrypted();
-        
+
         PDSignature signature = pdf.getLastSignatureDictionary();
         this.signed = signature != null;
         this.signerName = signature == null ? null : signature.getName();
@@ -80,6 +89,26 @@ public class PDF {
     this(readBytes(inputStream));
   }
 
+  public PDF(File pdfFile, int startPage, int endPage) throws IOException {
+    this(pdfFile.getAbsolutePath(), readAllBytes(Paths.get(pdfFile.getAbsolutePath())), startPage, endPage);
+  }
+
+  public PDF(URL url, int startPage, int endPage) throws IOException {
+    this(url.toString(), readBytes(url), startPage, endPage);
+  }
+
+  public PDF(URI uri, int startPage, int endPage) throws IOException {
+    this(uri.toURL(), startPage, endPage);
+  }
+
+  public PDF(byte[] content, int startPage, int endPage) {
+    this("", content, startPage, endPage);
+  }
+
+  public PDF(InputStream inputStream, int startPage, int endPage) throws IOException {
+    this(readBytes(inputStream), startPage, endPage);
+  }
+
   private static byte[] readBytes(URL url) throws IOException {
     try (InputStream inputStream = url.openStream()) {
       return readBytes(inputStream);
@@ -101,8 +130,14 @@ public class PDF {
   public static Matcher<PDF> containsText(String text) {
     return new ContainsText(text);
   }
+  public static Matcher<PDF> doesNotContainText(String text) {
+    return new DoesNotContainText(text);
+  }
   public static Matcher<PDF> containsExactText(String text) {
     return new ContainsExactText(text);
+  }
+  public static Matcher<PDF> doesNotContainExactText(String text) {
+    return new DoesNotContainExactText(text);
   }
   public static Matcher<PDF> containsTextCaseInsensitive(String text) {
     return new ContainsTextCaseInsensitive(text);
